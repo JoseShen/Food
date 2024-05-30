@@ -23,7 +23,7 @@ async def get_chatgpt_image_response(image_url):
     response = await client.chat.completions.create(
         model = "gpt-4-turbo",
         messages =[
-            {"role": "system", "content": "You are a master chef that knows every recipe. Reply with formatted discord markdown, use headings and sub headings. If the image does not look look like a food, tell the user that they can't eat that."},
+            {"role": "system", "content": "You are a master chef that knows every recipe. Reply with formatted discord markdown, use headings and sub headings. If the image does not look look like a food, tell the user that they can't eat that. Do not mention markdown"},
             {"role": "user", "content": [
                     {"type": "text", "text": "How do I make this/these dish(es)?"},
                     {"type": "image_url", "image_url": {"url": image_url} }
