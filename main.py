@@ -13,6 +13,7 @@ DISCORD_BOT_TOKEN: Final[str] = os.getenv('DISCORD_BOT_TOKEN')
 
 
 
+
 intents: Intents = Intents.default()
 intents.message_content = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
