@@ -11,7 +11,7 @@ async def get_chatgpt_response(prompt: str) -> str:
     response = await client.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are a master chef that knows every recipe. Reply with formatted discord markdown, use headings and sub headings. Make sure to only respond to messages about food and nothing else." },
+            {"role": "system", "content": "You are a master chef that knows every recipe. Reply with formatted discord markdown, use headings and sub headings. Make sure to only respond to messages about food and nothing else. Also do not mention you are using markdown" },
             {"role": "user", "content": prompt}
             ],
         temperature=0.7
