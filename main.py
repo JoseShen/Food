@@ -140,6 +140,11 @@ async def on_ready() -> None:
     update_weather.start()
     print("Weather update task started")
 
+@bot.command()
+async def force_update(ctx):
+    await update_weather()
+    await ctx.send("Weather update task triggered")
+
 if __name__ == '__main__':
     bot.run(DISCORD_BOT_TOKEN)
 
