@@ -118,7 +118,7 @@ async def update_weather():
         channel = bot.get_channel(1097009652576817243)
         
         if channel:
-            new_name = f'{city} - {weather_data["main"]["temp"]}°C'
+            new_name = f'{city}: {weather_data["main"]["temp"]}°C'
             print(f"Updating channel name to: {new_name}")
             await channel.edit(name=new_name)
             print("Channel name updated successfully")
