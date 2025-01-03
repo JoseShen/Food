@@ -104,7 +104,7 @@ def split_response(response):
 
 
 
-@tasks.loop(hours=1)
+@tasks.loop(minutes=5)
 async def update_weather():
     try:
         print("Weather update task running...")
@@ -116,11 +116,12 @@ async def update_weather():
             return
             
         channel = bot.get_channel(1097009652576817243)
-        
+        channel_update = bot.get_channel(1324530733276069951)
         if channel:
             new_name = f'{city}: {weather_data["main"]["temp"]}°C'
             print(f"Updating channel name to: {new_name}")
             await channel.edit(name=new_name)
+            await channel_update.send("Weather updated successfully")
             print("Channel name updated successfully")
         else:
             print(f"Channel not found: {1097009652576817243}")
