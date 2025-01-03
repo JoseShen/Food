@@ -117,18 +117,23 @@ async def update_weather():
             
         channel = bot.get_channel(1097009652576817243)
         channel_update = bot.get_channel(1324530733276069951)
-        if channel:
-            new_name = f'{city}: {weather_data["main"]["temp"]}°C'
-            print(f"Updating channel name to: {new_name}")
-            await channel.edit(name=new_name)
-            await channel_update.send("Weather updated successfully")
-            print("Channel name updated successfully")
-        else:
-            print(f"Channel not found: {1097009652576817243}")
+        temperature = weather_data["main"]["temp"]
+        new_name = f'{city}: {temperature}°C'
+        if temperature < 0:
+            final_name = f'{new_name} \u2744'
+        elif temperature >= 0 and temperature < 25:
+            final_name = f'{new_name} \U0001F341'
+        elif temperature >= 25:
+            final_name = f'{new_name} \U0001F525'
+
+        print(f"Updating channel name to: {final_name}")
+        await channel.edit(name=final_name)
+        await channel_update.send("Weather updated successfully")
+        print("Channel name updated successfully")
+
             
     except Exception as e:
         print(f"Error in update_weather task: {str(e)}")
-
 @update_weather.before_loop
 async def before_update():
     await bot.wait_until_ready()
@@ -148,6 +153,3 @@ async def force_update(ctx):
 
 if __name__ == '__main__':
     bot.run(DISCORD_BOT_TOKEN)
-
-
-
