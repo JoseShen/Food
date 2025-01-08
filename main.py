@@ -117,7 +117,10 @@ async def update_weather():
             
         channel = bot.get_channel(1097009652576817243)
         channel_update = bot.get_channel(1324530733276069951)
+        feel = bot.get_channel(1187223395612508260)
+        feels = bot.get_channel(1200277412370448554)
         temperature = weather_data["main"]["temp"]
+        feels_like = weather_data["main"]["feels_like"]
         new_name = f'{city}: {temperature}°C'
         if temperature < 0:
             final_name = f'{new_name} \u2744'
@@ -128,6 +131,8 @@ async def update_weather():
 
         print(f"Updating channel name to: {final_name}")
         await channel.edit(name=final_name)
+        await feel.edit(name="feels like")
+        await feels.edit(name=f'{feels_like}°C')
         await channel_update.send("Weather updated successfully")
         print("Channel name updated successfully")
 
