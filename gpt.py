@@ -9,7 +9,7 @@ client.api_key = os.getenv("OPENAI_API_KEY")
 
 async def get_chatgpt_response(prompt: str) -> str:
     response = await client.chat.completions.create(
-        model="gpt-5-nano",
+        model="gpt-5-nano-2025-08-07",
         messages=[
             {"role": "system", "content": "You are a master chef that knows every recipe. Reply with formatted discord markdown, use headings and sub headings. Make sure to only respond to messages about food and nothing else. Also do not mention you are using markdown" },
             {"role": "user", "content": prompt}
@@ -21,7 +21,7 @@ async def get_chatgpt_response(prompt: str) -> str:
 
 async def get_chatgpt_image_response(image_url):
     response = await client.chat.completions.create(
-        model = "gpt-5-nano",
+        model = "gpt-5-nano-2025-08-07",
         messages =[
             {"role": "system", "content": "You are a master chef that knows every recipe. Reply with formatted discord markdown, use headings and sub headings. If the image does not look look like a food, tell the user that they can't eat that. Do not mention markdown"},
             {"role": "user", "content": [
