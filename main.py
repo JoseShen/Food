@@ -2,6 +2,7 @@ from typing import Final
 import base64
 import os
 from dotenv import load_dotenv
+import discord
 from discord import Intents, Embed, Interaction, Attachment, app_commands
 from discord.ext import commands, tasks
 from gpt import get_chatgpt_response, get_chatgpt_image_response
@@ -12,20 +13,24 @@ load_dotenv()
 
 # Get the Discord bot token from environment variables
 DISCORD_BOT_TOKEN: Final[str] = os.getenv('DISCORD_BOT_TOKEN')
+GUILD_IDS = [
+    int(guild_id.strip())
+    for guild_id in os.getenv('DISCORD_GUILD_IDS', '').split(',')
+    if guild_id.strip()
+]
 
 
 
 
 intents: Intents = Intents.default()
 intents.message_content = True 
-bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
+
 
 class GPTCommands(app_commands.Group):
     """Slash command group for GPT-powered interactions."""
 
-    def __init__(self, bot: commands.Bot) -> None:
+    def __init__(self) -> None:
         super().__init__(name="gpt", description="Interact with GPT capabilities.")
-        self.bot = bot
 
     @app_commands.command(name="ask", description="Ask ChatGPT a question.")
     @app_commands.describe(prompt="Prompt to send to ChatGPT")
@@ -69,7 +74,33 @@ class GPTCommands(app_commands.Group):
             await interaction.followup.send(embed=embed)
 
 
-bot.tree.add_command(GPTCommands(bot))
+
+class GPTSlashBot(commands.Bot):
+    """Discord bot configured to use slash commands."""
+
+    def __init__(self) -> None:
+        super().__init__(command_prefix=commands.when_mentioned, intents=intents)
+
+    async def setup_hook(self) -> None:
+        if not self.tree.get_command('gpt'):
+            self.tree.add_command(GPTCommands())
+
+        if GUILD_IDS:
+            for guild_id in GUILD_IDS:
+                guild = discord.Object(id=guild_id)
+                synced_cmds = await self.tree.sync(guild=guild)
+                print(f"Synced {len(synced_cmds)} slash commands to guild {guild_id}.")
+        else:
+            synced_cmds = await self.tree.sync()
+            print(f"Synced {len(synced_cmds)} global slash commands.")
+
+        for command in self.tree.walk_commands():
+            print(f"Loaded command: /{command.qualified_name}")
+
+        await super().setup_hook()
+
+
+bot = GPTSlashBot()
 
 
 def split_response(response):
@@ -127,11 +158,10 @@ async def on_ready() -> None:
         update_weather.start()
         print("Weather update task started")
 
-    try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} slash commands.")
-    except Exception as e:
-        print(f"Failed to sync slash commands: {e}")
+    if GUILD_IDS:
+        print(f"Slash commands registered for guilds: {', '.join(str(guild) for guild in GUILD_IDS)}")
+    else:
+        print("Slash commands registered globally; propagation may take up to an hour.")
 
 
 @bot.tree.command(name="force_update", description="Trigger the weather update task immediately.")
