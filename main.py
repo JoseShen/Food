@@ -6,6 +6,8 @@ from discord import Intents, Message, Embed, TextChannel
 from discord.ext import commands, tasks
 from gpt import get_chatgpt_response, get_chatgpt_image_response
 from weather import get_weather
+from aiohttp import web
+import asyncio
 load_dotenv()
 
 # Get the Discord bot token from environment variables
@@ -156,5 +158,100 @@ async def force_update(ctx):
     await update_weather()
     await ctx.send("Weather update task triggered")
 
+# ========== WEB SERVER SETUP ==========
+
+async def handle_index(request):
+    """Main dashboard page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Discord Bot Dashboard</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+                background-color: #36393f;
+                color: #dcddde;
+            }
+            h1 { color: #7289da; }
+            .card {
+                background-color: #2f3136;
+                padding: 20px;
+                margin: 20px 0;
+                border-radius: 8px;
+            }
+            a {
+                color: #00aff4;
+                text-decoration: none;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>🤖 Discord Bot Dashboard</h1>
+        <div class="card">
+            <h2>Status</h2>
+            <p>Bot is currently online and running!</p>
+        </div>
+        <div class="card">
+            <h2>API Endpoints</h2>
+            <ul>
+                <li><a href="/api/status">/api/status</a> - Bot status information</li>
+                <li><a href="/api/stats">/api/stats</a> - Bot statistics</li>
+            </ul>
+        </div>
+    </body>
+    </html>
+    """
+    return web.Response(text=html_content, content_type='text/html')
+
+async def handle_status(request):
+    """API endpoint for bot status"""
+    return web.json_response({
+        "status": "online",
+        "bot_name": str(bot.user) if bot.user else "Not logged in",
+        "server_count": len(bot.guilds),
+        "user_count": sum(guild.member_count for guild in bot.guilds)
+    })
+
+async def handle_stats(request):
+    """API endpoint for detailed stats"""
+    guild_info = [
+        {"name": guild.name, "members": guild.member_count}
+        for guild in bot.guilds
+    ]
+    return web.json_response({
+        "guilds": guild_info,
+        "total_guilds": len(bot.guilds),
+        "total_members": sum(guild.member_count for guild in bot.guilds)
+    })
+
+async def start_web_server():
+    """Initialize and start the web server"""
+    app = web.Application()
+    
+    # Add routes
+    app.router.add_get('/', handle_index)
+    app.router.add_get('/api/status', handle_status)
+    app.router.add_get('/api/stats', handle_stats)
+    
+    # Start the web server
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 3000)
+    await site.start()
+    print("Web server started on http://0.0.0.0:3000")
+
+async def main():
+    """Main async function to run both bot and web server"""
+    # Start web server
+    await start_web_server()
+    
+    # Start Discord bot
+    async with bot:
+        await bot.start(DISCORD_BOT_TOKEN)
+
 if __name__ == '__main__':
-    bot.run(DISCORD_BOT_TOKEN)
+    asyncio.run(main())
