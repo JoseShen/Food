@@ -2,7 +2,7 @@ from typing import Final
 import base64
 import os
 from dotenv import load_dotenv
-from discord import Intents, Message, Embed, TextChannel 
+from discord import Intents, Embed, Interaction, Attachment, app_commands
 from discord.ext import commands, tasks
 from gpt import get_chatgpt_response, get_chatgpt_image_response
 from weather import get_weather
@@ -18,86 +18,58 @@ DISCORD_BOT_TOKEN: Final[str] = os.getenv('DISCORD_BOT_TOKEN')
 
 intents: Intents = Intents.default()
 intents.message_content = True 
-bot = commands.Bot(command_prefix="$", intents=intents)
+bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents)
 
-@bot.event 
-async def on_ready() -> None:
-    print(f"Logged in as {bot.user}")
+class GPTCommands(app_commands.Group):
+    """Slash command group for GPT-powered interactions."""
 
-@bot.event
-async def on_message(message: Message) -> None:
-    if message.author == bot.user: # prevents bot from talking to itself
-        return
+    def __init__(self, bot: commands.Bot) -> None:
+        super().__init__(name="gpt", description="Interact with GPT capabilities.")
+        self.bot = bot
 
-    await bot.process_commands(message) # Processes commands in chat
+    @app_commands.command(name="ask", description="Ask ChatGPT a question.")
+    @app_commands.describe(prompt="Prompt to send to ChatGPT")
+    async def ask(self, interaction: Interaction, prompt: str) -> None:
+        await interaction.response.defer(thinking=True)
+        response = await get_chatgpt_response(prompt)
 
-@bot.group()
-async def gpt(ctx):
-    if ctx.invoked_subcommand is None:
-        # Create an embed with available commands
-        embed = Embed(
-            title="GPT Commands",
-            description="Available GPT operations. Use $gpt [command] [question/upload] to interact with GPT.",
-            color=0x00ff00
-        )
-        await ctx.send(embed=embed)
+        if not response:
+            await interaction.followup.send("No response from ChatGPT.")
+            return
 
-
-@gpt.command()
-async def ask(ctx: commands.Context) -> None:
-    
-    await ctx.typing() # Shows that the bot is typing
-
-    if ctx.message.content == "$ask":
-        return await ctx.reply("Please provide a prompt.")
-    
-    prompt = ctx.message.content[6:]
-    response = await get_chatgpt_response(prompt)  
-
-    if response is not None:
-        # Handles large responses from ChatGPT
         if len(response) > 4096:
-            chunks = split_response(response)
-            for chunk in chunks:
-                embed = Embed(description=chunk, color=0x00ff00)
-                await ctx.reply(embed=embed)
+            for chunk in split_response(response):
+                embed = Embed(description=chunk, color=0x00FF00)
+                await interaction.followup.send(embed=embed)
         else:
-            embed = Embed(description=response, color=0x00ff00) # Create an embed with the ChatGPT response
-            await ctx.reply(embed=embed) # Reply to user with the response
-    else:
-        await ctx.reply("No response from ChatGPT.") # Handle the case when response is None
-    
+            embed = Embed(description=response, color=0x00FF00)
+            await interaction.followup.send(embed=embed)
 
+    @app_commands.command(name="upload", description="Analyze a food image with ChatGPT.")
+    @app_commands.describe(image="Image of food to analyze")
+    async def upload(self, interaction: Interaction, image: Attachment) -> None:
+        await interaction.response.defer(thinking=True)
 
+        if image.content_type and not image.content_type.startswith("image/"):
+            await interaction.followup.send("Please upload a valid image file.")
+            return
 
-@gpt.command()
-async def upload(ctx: commands.Context) -> None:
-    await ctx.typing()
+        response = await get_chatgpt_image_response(image.url)
 
-    if ctx.message.attachments:
-        # Get the URLs of the message
-        attachment_urls = [attachment.url for attachment in ctx.message.attachments]
+        if not response:
+            await interaction.followup.send("No response from ChatGPT.")
+            return
 
-       
-        response = await get_chatgpt_image_response(attachment_urls[0])
-
-        if response is not None:
-            # Handles large responses from ChatGPT
-            if len(response) > 4096:
-                chunks = split_response(response)
-                for chunk in chunks:
-                    embed = Embed(description=chunk, color=0x00ff00)
-                    await ctx.reply(embed=embed)
-            else:
-                embed = Embed(description=response, color=0x00ff00)  # Create an embed with the ChatGPT response
-                await ctx.reply(embed=embed)  # Reply to user with the response
+        if len(response) > 4096:
+            for chunk in split_response(response):
+                embed = Embed(description=chunk, color=0x00FF00)
+                await interaction.followup.send(embed=embed)
         else:
-            await ctx.reply("No response from ChatGPT.")  # Handle the case when response is None
-
-    else:
-        return await ctx.reply("No attachments found, upload an image of a food!.")
+            embed = Embed(description=response, color=0x00FF00)
+            await interaction.followup.send(embed=embed)
 
 
+bot.tree.add_command(GPTCommands(bot))
 
 
 def split_response(response):
@@ -147,16 +119,26 @@ async def before_update():
     print("Bot is ready, starting weather update loop")
 
 # Modify your on_ready event to start the task
-@bot.event 
+@bot.event
 async def on_ready() -> None:
     print(f"Logged in as {bot.user}")
-    update_weather.start()
-    print("Weather update task started")
 
-@bot.command()
-async def force_update(ctx):
+    if not update_weather.is_running():
+        update_weather.start()
+        print("Weather update task started")
+
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} slash commands.")
+    except Exception as e:
+        print(f"Failed to sync slash commands: {e}")
+
+
+@bot.tree.command(name="force_update", description="Trigger the weather update task immediately.")
+async def force_update(interaction: Interaction) -> None:
+    await interaction.response.defer(thinking=True)
     await update_weather()
-    await ctx.send("Weather update task triggered")
+    await interaction.followup.send("Weather update task triggered")
 
 # ========== WEB SERVER SETUP ==========
 
